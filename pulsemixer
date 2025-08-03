@@ -1767,21 +1767,23 @@ class Screen():
 
         if n == self.UP and self.focus_line_num == 0 and self.top_line_num != 0:
             self.top_line_num += self.UP
-            return
         elif n == self.DOWN and next_line_num == self.lines and (self.top_line_num + self.lines) != self.n_lines:
             self.top_line_num += self.DOWN
-            return
-
-        if n == self.UP:
-            if self.top_line_num != 0 or self.focus_line_num != 0:
+        elif n == self.UP:
+            if self.top_line_num > 0 or self.focus_line_num > 0:
                 self.focus_line_num = next_line_num
             elif cycle:
                 self.scroll_last()
-        elif n == self.DOWN and self.focus_line_num != self.lines:
-            if self.top_line_num + self.focus_line_num + 1 != self.n_lines:
+        elif n == self.DOWN:
+            if self.top_line_num + self.focus_line_num + 1 < self.n_lines:
                 self.focus_line_num = next_line_num
             elif cycle:
                 self.scroll_first()
+
+        # a 'bar' can be a 'Bar' object, 'None' or a string
+        bar = self.data[self.top_line_num + self.focus_line_num][0]
+        if not isinstance(bar, Bar):
+            self.scroll(n, cycle)
 
     def scroll_first(self):
         for _ in range(self.n_lines): self.scroll(self.UP)
