@@ -1097,6 +1097,7 @@ class Screen():
         self.action = None
         self.server_info = None
         self.ev = threading.Event()
+        self.verbose = False
 
     def getch(self):
         # blocking getch, can be 'interrupted' by ev.set
@@ -1289,6 +1290,11 @@ class Screen():
                 self.change_mode(2)
             elif c == ord('?'):
                 self.helpwin_show = True
+            elif c == ord('v'):
+                self.verbose = not self.verbose
+                self.ev.set()
+            elif c == ord('s'):
+                self.shell_out()
             elif c == ord('\n'):
                 if not self.submenu_show and self.change_mode_allowed and side != Bar.NONE:
                     self.selected = self.data[focus]
@@ -1433,6 +1439,17 @@ class Screen():
                     self.scroll(self.UP)
         return target
 
+    def add_verbose_info(self, data):
+        new_data = []
+        for item in data:
+            new_data.append(item)
+            bar, bartype, _, _ = item
+            if not bar or isinstance(bar, str) or bartype != Bar.LEFT:
+                continue
+            if type(bar.pa) in (PulseSinkInfo, PulseSourceInfo, PulseCard):
+                new_data.append(("verbose", f"  ({bar.pa.name.decode()})", None, None))
+        return new_data
+
     def add_spacers(self, f):
         tmp = []
         l = len(f)
@@ -1457,6 +1474,10 @@ class Screen():
             self.data = self.build(self.modes_data[3][0], PULSE.sink_list(), [])
         elif type(self.selected[0].pa) is PulseSourceOutputInfo:
             self.data = self.build(self.modes_data[4][0], PULSE.source_list(), [])
+
+        if self.verbose:
+            self.data = self.add_verbose_info(self.data)
+
         self.server_info = PULSE.get_server_info()
         self.n_lines = len(self.data)
         if not self.n_lines:
@@ -1471,7 +1492,12 @@ class Screen():
         bottom = self.top_line_num + self.lines
         self.display_line(0, self.menu)
         for index, line in enumerate(self.data[top:bottom]):
-            bar, bartype = line[0], line[1]
+            bar, bartype, _, _ = line
+
+            if bar == "verbose":
+                self.display_line(index + 1, f"{bartype}|{curses.A_DIM}")
+                continue
+
             if not bar:
                 self.screen.addstr(index + 1, 0, '', curses.A_DIM)
                 continue
@@ -1590,6 +1616,8 @@ class Screen():
                ('H L   Shift←  Shift→',             'Change volume by 10'),
                ('1 2 3 .. 8 9 0',                   'Set volume to 10%-100%'),
                ('m',                                'Mute/Unmute'),
+               ('v',                                'Toggle verbose mode'),
+               ('s',                                'Show pactl info'),
                ('Space',                            'Lock/Unlock channels'),
                ('Enter',                            'Context menu'),
                ('{} {} {}'.format(*self.mode_keys), 'Change modes'),
@@ -1607,6 +1635,40 @@ class Screen():
     def run_helpwin(self):
         if self.getch() in CFG.keys.quit:
             self.helpwin_show = False
+
+    def shell_out(self):
+        focus = self.top_line_num + self.focus_line_num
+        try:
+            bar, side = self.data[focus][0], self.data[focus][1]
+        except IndexError:
+            return
+
+        if side is Bar.NONE:
+            return
+
+        pa_obj = bar.pa
+        obj_type = type(pa_obj)
+        obj_index = pa_obj.index
+
+        type_map = {
+            PulseSinkInfo: ("sinks", "Sink"),
+            PulseSourceInfo: ("sources", "Source"),
+            PulseSinkInputInfo: ("sink-inputs", "Sink Input"),
+            PulseSourceOutputInfo: ("source-outputs", "Source Output"),
+            PulseCard: ("cards", "Card"),
+        }
+
+        if obj_type not in type_map:
+            return
+
+        pactl_cmd, grep_pattern = type_map[obj_type]
+        pager = os.environ.get("PAGER", "less")
+        command = f"pactl list {pactl_cmd} | sed -n '/^{grep_pattern} #{obj_index}/,/^$/p' | {pager}"
+
+        curses.endwin()
+        os.system(command)
+        self.screen.refresh()
+        self.ev.set()
 
     def resize_submenu(self):
         key = lambda x: len(x.split('|')[0])
