@@ -1088,7 +1088,7 @@ class Screen():
         self.submenu_show = False
         self.submenu = curses.newwin(curses.LINES, 0, 0, 0)
         self.helpwin_show = False
-        self.helpwin = curses.newwin(14, 50, 0, 0)
+        self.helpwin = curses.newwin(16, 50, 0, 0)
         try:
             self.helpwin.mvwin((curses.LINES // 2) - 7, (curses.COLS // 2) - 25)
         except:
