@@ -1088,7 +1088,7 @@ class Screen():
         self.submenu_show = False
         self.submenu = curses.newwin(curses.LINES, 0, 0, 0)
         self.helpwin_show = False
-        self.helpwin = curses.newwin(16, 50, 0, 0)
+        self.helpwin = curses.newwin(14, 50, 0, 0)
         try:
             self.helpwin.mvwin((curses.LINES // 2) - 7, (curses.COLS // 2) - 25)
         except:
@@ -1185,9 +1185,13 @@ class Screen():
             _, x, y, _, c = curses.getmouse()
             if c & curses.BUTTON1_CLICKED:
                 if y > 0:
-                    top, bottom = self.top_line_num, len(self.data[self.top_line_num:self.top_line_num + self.lines]) - 1
+                    top = self.top_line_num
+                    bottom = len(self.data[top:top + self.lines]) - 1
                     if y - 1 <= bottom:
-                        self.focus_line_num = max(top, min(bottom, y - 1))
+                        self.focus_line_num = y - 1
+                        bar = self.data[top + self.focus_line_num][0]
+                        if not isinstance(bar, Bar):
+                            self.scroll(self.UP)
                 else:
                     f1 = len(self.menu_titles[0]) + 1  # 1 is 'spacing' after the title
                     f2 = f1 + len(self.menu_titles[1]) + 2
