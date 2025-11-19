@@ -1629,10 +1629,26 @@ class Screen():
                ('Mouse click',                      'Select device or mode'),
                ('Mouse wheel',                      'Volume change'),
                ('Esc q',                            'Quit'))
-        win_width, desc_maxlen = self.helpwin.getmaxyx()[1] - 4, max(len(x[1]) for x in doc)
+
+        # Calculate required window height dynamically
+        win_height = len(doc) + 2  # +2 for borders
+        win_width = 50
+        desc_maxlen = max(len(x[1]) for x in doc)
+        
+        # Resize window to fit all entries
+        try:
+            self.helpwin.resize(win_height, win_width)
+            self.helpwin.mvwin(max(0, (curses.LINES // 2) - (win_height // 2)), 
+                              max(0, (curses.COLS // 2) - (win_width // 2)))
+        except curses.error:
+            pass  # If resize fails, continue with current size
+        
         self.helpwin.erase()
         for i, s in enumerate(doc):
-            self.helpwin.addstr(i + 1, 2, s[0] + ' ' * (win_width - desc_maxlen - len(s[0])) + s[1])
+            try:
+                self.helpwin.addstr(i + 1, 2, s[0] + ' ' * (win_width - desc_maxlen - len(s[0]) - 4) + s[1])
+            except curses.error:
+                pass  # Skip lines that don't fit
         self.helpwin.border()
         self.helpwin.refresh()
 
